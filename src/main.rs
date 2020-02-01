@@ -28,7 +28,7 @@ impl Raytracer {
         let RIGHT = Vector3 {x: 1.0, y: 0.0, z: 0.0};
         let UP = Vector3 {x: 0.0, y: 1.0, z: 0.0};
 
-        let max_dim = x.max(y);
+        let max_dim = self.width.max(self.height);
         let max_dim: f64 = f64::from(max_dim);
         let sx = (2.0 * x - f64::from(self.width)) / max_dim;
         let sy = (f64::from(self.height) - 2.0 * y) / max_dim;
@@ -153,8 +153,8 @@ struct Ray {
 }
 
 fn main() {
-    let imgx = 150;
-    let imgy = 100;
+    let imgx = 100;
+    let imgy = 50;
     let s1 = Sphere {
         center: Vector3{x: 0.0, y: 0.0, z: -1.0},
         r: 0.3,
