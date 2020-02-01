@@ -58,6 +58,7 @@ impl Raytracer {
 
         for s in &self.spheres[1..] {
             let intersect_dist = s.intersect(&ray);
+            println!("{}", intersect_dist);
             if intersect_dist > 0.0 && (intersect_dist < min_dist || min_dist < 0.0) {
                 min_dist = intersect_dist;
                 min_shape = &s;
@@ -82,7 +83,7 @@ struct Sphere {
 impl Sphere {
     fn intersect(&self, ray: &Ray) -> f64 {
         // vector from ray origin to center of sphere
-        let oc = ray.origin.subtract(&self.center);
+        let oc = self.center.subtract(&ray.origin);
         let oc_mag_squared = oc.dot(&oc);
 
         let ray_d_mag = ray.direction.magnitude();
@@ -102,16 +103,18 @@ impl Sphere {
 
         let r2_d2_diff = self.r * self.r - d_mag_squared;
 
-        if !inside && r2_d2_diff < 0.0 {
+        if !inside && d_mag_squared > self.r*self.r {
             return -1.0 // no collision
         }
+
+        println!("got here");
 
         let t_offset = r2_d2_diff.sqrt() / ray_d_mag;
 
         if inside {
-            t_center + t_offset
+            return t_center + t_offset;
         } else {
-            t_center - t_offset
+            return t_center - t_offset;
         }
     }
 }
@@ -150,16 +153,19 @@ struct Ray {
 }
 
 fn main() {
-    let imgx = 800;
-    let imgy = 800;
-    //sphere 0 0 -1 0.3
-    //sphere 1 0.8 -1 0.5
+    let imgx = 150;
+    let imgy = 100;
     let s1 = Sphere {
         center: Vector3{x: 0.0, y: 0.0, z: -1.0},
         r: 0.3,
         color: image::Rgba([0, 0, 0, 255])
     };
-    let shapes = vec![s1];
+    let s2 = Sphere {
+        center: Vector3{x: 1.0, y: 0.8, z: -1.0},
+        r: 0.5,
+        color: image::Rgba([0, 0, 0, 255])
+    };
+    let shapes = vec![s1, s2];
 
     let mut r = Raytracer::new(imgx, imgy, shapes);
     r.trace_from_camera();
