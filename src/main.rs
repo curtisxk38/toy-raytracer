@@ -6,17 +6,15 @@ extern crate image;
 struct Raytracer {
     width: u32,
     height: u32,
-    imgbuf: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>
+    imgbuf: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
+    spheres: Vec<Sphere>
 }
 
 impl Raytracer {
-    fn new(width: u32, height: u32) -> Raytracer {
-        Raytracer { width: width, height: height, imgbuf: image::ImageBuffer::new(width, height) }
-    }
-
-    fn fill_black(&mut self) {
-        for (_x, _y, pixel) in self.imgbuf.enumerate_pixels_mut() {
-            *pixel = image::Rgba([0, 0, 0, 255]);
+    fn new(width: u32, height: u32, spheres: Vec<Sphere>) -> Raytracer {
+        Raytracer { width: width, height: height,
+            imgbuf: image::ImageBuffer::new(width, height),
+            spheres: spheres
         }
     }
 
@@ -52,9 +50,26 @@ impl Raytracer {
         }
     }
 
-    fn shoot_ray(&mut self, ray: Ray, level: u32) -> image::Rgba<u8> {
+    fn shoot_ray(&mut self, ray: Ray, _level: u32) -> image::Rgba<u8> {
         let color = image::Rgba([0, 0, 0, 0]);
-        return color;
+
+        let mut min_dist = self.spheres[0].intersect(&ray);
+        let mut min_shape = &self.spheres[0];
+
+        for s in &self.spheres[1..] {
+            let intersect_dist = s.intersect(&ray);
+            if intersect_dist > 0.0 && (intersect_dist < min_dist || min_dist < 0.0) {
+                min_dist = intersect_dist;
+                min_shape = &s;
+            }
+        }
+
+        if min_dist < 0.0 {
+            return color;
+        }
+
+
+        return min_shape.color;
     }
 }
 
@@ -65,15 +80,39 @@ struct Sphere {
 }
 
 impl Sphere {
-    fn intersect(self, ray: Ray) -> f64 {
+    fn intersect(&self, ray: &Ray) -> f64 {
+        // vector from ray origin to center of sphere
         let oc = ray.origin.subtract(&self.center);
-        let x = ray.direction.dot(&oc);
-        let rad = x * x - oc.dot(&oc) + self.r * self.r;
-        if rad < 0.0 {
-            return -1.0;
+        let oc_mag_squared = oc.dot(&oc);
+
+        let ray_d_mag = ray.direction.magnitude();
+
+        let inside = oc_mag_squared < self.r * self.r;
+        // point along ray, where it comes closest to center
+        // scalar projection of ray onto oc
+        let t_center = oc.dot(&ray.direction) / ray_d_mag;
+
+        if !inside && t_center < 0.0 {
+            return -1.0; // no collision
         }
-        let result = x * -1.0 - rad.sqrt();
-        return result;
+
+        // distance of closest approach
+        let d = ray.origin.add(&ray.direction.scale(t_center)).subtract(&self.center);
+        let d_mag_squared = d.dot(&d);
+
+        let r2_d2_diff = self.r * self.r - d_mag_squared;
+
+        if !inside && r2_d2_diff < 0.0 {
+            return -1.0 // no collision
+        }
+
+        let t_offset = r2_d2_diff.sqrt() / ray_d_mag;
+
+        if inside {
+            t_center + t_offset
+        } else {
+            t_center - t_offset
+        }
     }
 }
 
@@ -99,6 +138,10 @@ impl Vector3 {
     fn scale(&self, f: f64) -> Vector3 {
         Vector3 {x: self.x * f, y: self.y * f, z: self.z * f}
     }
+
+    fn magnitude(&self) -> f64 {
+        return self.dot(&self).sqrt();
+    }
 }
 
 struct Ray {
@@ -109,8 +152,16 @@ struct Ray {
 fn main() {
     let imgx = 800;
     let imgy = 800;
-    let mut r = Raytracer::new(imgx, imgy);
-    r.fill_black();
+    //sphere 0 0 -1 0.3
+    //sphere 1 0.8 -1 0.5
+    let s1 = Sphere {
+        center: Vector3{x: 0.0, y: 0.0, z: -1.0},
+        r: 0.3,
+        color: image::Rgba([0, 0, 0, 255])
+    };
+    let shapes = vec![s1];
+
+    let mut r = Raytracer::new(imgx, imgy, shapes);
     r.trace_from_camera();
     r.save("test.png");
 }
