@@ -1,20 +1,24 @@
-
-
 extern crate image;
+
+use std::convert::TryFrom;
 
 
 struct Raytracer {
     width: u32,
     height: u32,
     imgbuf: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-    spheres: Vec<Sphere>
+    spheres: Vec<Sphere>,
+    img: Vec<f64>
 }
 
 impl Raytracer {
     fn new(width: u32, height: u32, spheres: Vec<Sphere>) -> Raytracer {
+        let size = width * height;
+        let size = usize::try_from(size).unwrap();
         Raytracer { width: width, height: height,
             imgbuf: image::ImageBuffer::new(width, height),
-            spheres: spheres
+            spheres: spheres,
+            img: vec![0.0; size]
         }
     }
 
@@ -48,14 +52,18 @@ impl Raytracer {
             for j in 0..self.height {
                 let ray = self.get_ray_from_pixel(f64::from(i), f64::from(j));
                 let color = self.shoot_ray(ray, 0);
+                let color_bytes = match { color } {
+                    Some(color) => color.to_bytes_color(),
+                    None => image::Rgba::<u8>([0, 0, 0, 0])
+                };
                 let pixel = self.imgbuf.get_pixel_mut(i, j);
-                *pixel = color;
+                *pixel = color_bytes;
             }
         }
     }
 
-    fn shoot_ray(&mut self, ray: Ray, _level: u32) -> image::Rgba<u8> {
-        let color = image::Rgba([0, 0, 0, 0]);
+    fn shoot_ray(&mut self, ray: Ray, _level: u32) -> Option<&Color> {
+        
 
         let mut min_dist = self.spheres[0].intersect(&ray);
         let mut min_shape = &self.spheres[0];
@@ -69,7 +77,7 @@ impl Raytracer {
         }
 
         if min_dist < 0.0 {
-            return color;
+            return None;
         }
 
         // lambertian reflectance
@@ -78,7 +86,7 @@ impl Raytracer {
         // min_shape.get_color() * sun.color * normal.dot(sun.direction);
 
 
-        return min_shape.color;
+        return Some(&min_shape.color);
     }
 }
 
@@ -87,13 +95,38 @@ impl Raytracer {
 //   no matter where the object is.
 struct Sun {
     direction: Vector3,
-    color: image::Rgba<u8>
+    color: Color
+}
+
+struct Color {
+    r: f64,
+    g: f64,
+    b: f64,
+    a: f64
+}
+
+impl Color {
+    fn clamp_and_convert(&self, channel: f64) -> u8 {
+        let min = 0.0;
+        let max = 1.0;
+        let channel = if channel < min { min } else if channel > max { max } else { channel };
+        let channel = channel * 255.0;
+        let channel = channel.round();
+        channel as u8
+    }
+    fn to_bytes_color(&self) -> image::Rgba<u8> {
+        let r = self.clamp_and_convert(self.r);
+        let g = self.clamp_and_convert(self.g);
+        let b = self.clamp_and_convert(self.b);
+        let a = self.clamp_and_convert(self.a);
+        image::Rgba::<u8>([r, g, b, a])
+    }
 }
 
 struct Sphere {
     center: Vector3,
     r: f64,
-    color: image::Rgba<u8>
+    color: Color
 }
 
 impl Sphere {
@@ -184,18 +217,22 @@ struct Ray {
     direction: Vector3,
 }
 
+fn save_image(raytracer: &Raytracer) {
+
+}
+
 fn main() {
     let imgx = 100;
     let imgy = 50;
     let s1 = Sphere {
         center: Vector3{x: 0.0, y: 0.0, z: -1.0},
         r: 0.3,
-        color: image::Rgba([0, 0, 0, 255])
+        color: Color {r: 0.0, g: 0.0, b: 0.0, a: 1.0}
     };
     let s2 = Sphere {
         center: Vector3{x: 1.0, y: 0.8, z: -1.0},
         r: 0.5,
-        color: image::Rgba([0, 0, 0, 255])
+        color: Color {r: 0.0, g: 0.0, b: 0.0, a: 1.0}
     };
     let shapes = vec![s1, s2];
 
