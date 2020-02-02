@@ -72,9 +72,22 @@ impl Raytracer {
             return color;
         }
 
+        // lambertian reflectance
+        let collision_point = ray.origin.add(&ray.direction.scale(min_dist));
+        let normal = min_shape.normal(collision_point);
+        // min_shape.get_color() * sun.color * normal.dot(sun.direction);
+
 
         return min_shape.color;
     }
+}
+
+// a sun light infinitely far away in the <direction> direction.
+// The “direction to light” vector in the lighting equation is given direction
+//   no matter where the object is.
+struct Sun {
+    direction: Vector3,
+    color: image::Rgba<u8>
 }
 
 struct Sphere {
@@ -119,6 +132,12 @@ impl Sphere {
             return t_center - t_offset;
         }
     }
+
+    fn normal(&self, point: Vector3) {
+        // find the vector normal to this shape at given point
+        let center_to_point = point.subtract(&self.center);
+        center_to_point.normalize();
+    }
 }
 
 #[derive(Debug)]
@@ -135,6 +154,10 @@ impl Vector3 {
 
     fn subtract(&self, other: &Vector3) -> Vector3 {
         Vector3 {x: self.x - other.x, y: self.y - other.y, z: self.z - other.z}
+    }
+
+    fn mul(&self, other: &Vector3) -> Vector3 {
+        Vector3 {x: self.x * other.x, y: self.y * other.y, z: self.z * other.z}
     }
 
     fn dot(&self, other: &Vector3) -> f64 {
