@@ -23,19 +23,23 @@ impl Raytracer {
     }
 
     fn get_ray_from_pixel(&mut self, x: f64, y: f64) -> Ray {
-        let EYE = Vector3 {x: 0.0, y: 0.0, z: 0.0};
-        let FORWARD = Vector3 {x: 0.0, y: 0.0, z: -1.0};
-        let RIGHT = Vector3 {x: 1.0, y: 0.0, z: 0.0};
-        let UP = Vector3 {x: 0.0, y: 1.0, z: 0.0};
+        let eye = Vector3 {x: 0.0, y: 0.0, z: 0.0};
+        let forward = Vector3 {x: 0.0, y: 0.0, z: -1.0};
+        let right = Vector3 {x: 1.0, y: 0.0, z: 0.0};
+        let up = Vector3 {x: 0.0, y: 1.0, z: 0.0};
 
-        let max_dim = self.width.max(self.height);
-        let max_dim: f64 = f64::from(max_dim);
-        let sx = (2.0 * x - f64::from(self.width)) / max_dim;
-        let sy = (f64::from(self.height) - 2.0 * y) / max_dim;
+        let float_w = f64::from(self.width);
+        let float_h = f64::from(self.height);
 
-        let dir = FORWARD.add(&RIGHT.scale(sx)).add(&UP.scale(sy));
+        let max_dim = float_h.max(float_w);
+        let sx = (2.0 * x - float_w) / max_dim;
+        let sy = (float_h - 2.0 * y) / max_dim;
 
-        return Ray {origin: EYE, direction: dir};
+        let dir = up.scale(sy);
+        let dir = dir.add(&(right.scale(sx)));
+        let dir = dir.add(&forward);
+
+        return Ray {origin: eye, direction: dir.normalize()};
 
     }
 
@@ -58,7 +62,6 @@ impl Raytracer {
 
         for s in &self.spheres[1..] {
             let intersect_dist = s.intersect(&ray);
-            println!("{}", intersect_dist);
             if intersect_dist > 0.0 && (intersect_dist < min_dist || min_dist < 0.0) {
                 min_dist = intersect_dist;
                 min_shape = &s;
@@ -96,6 +99,7 @@ impl Sphere {
         if !inside && t_center < 0.0 {
             return -1.0; // no collision
         }
+        
 
         // distance of closest approach
         let d = ray.origin.add(&ray.direction.scale(t_center)).subtract(&self.center);
@@ -107,8 +111,6 @@ impl Sphere {
             return -1.0 // no collision
         }
 
-        println!("got here");
-
         let t_offset = r2_d2_diff.sqrt() / ray_d_mag;
 
         if inside {
@@ -119,6 +121,7 @@ impl Sphere {
     }
 }
 
+#[derive(Debug)]
 struct Vector3 {
     x: f64,
     y: f64,
@@ -145,8 +148,14 @@ impl Vector3 {
     fn magnitude(&self) -> f64 {
         return self.dot(&self).sqrt();
     }
+
+    fn normalize(&self) -> Vector3 {
+        let mag = self.magnitude();
+        Vector3 { x: self.x / mag, y: self.y / mag, z: self.z / mag }
+    }
 }
 
+#[derive(Debug)]
 struct Ray {
     origin: Vector3,
     direction: Vector3,
