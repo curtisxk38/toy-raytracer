@@ -1,24 +1,18 @@
 extern crate image;
 
-use std::convert::TryFrom;
-
 
 struct Raytracer {
     width: u32,
     height: u32,
     imgbuf: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-    spheres: Vec<Sphere>,
-    img: Vec<f64>
+    spheres: Vec<Sphere>
 }
 
 impl Raytracer {
     fn new(width: u32, height: u32, spheres: Vec<Sphere>) -> Raytracer {
-        let size = width * height;
-        let size = usize::try_from(size).unwrap();
         Raytracer { width: width, height: height,
             imgbuf: image::ImageBuffer::new(width, height),
-            spheres: spheres,
-            img: vec![0.0; size]
+            spheres: spheres
         }
     }
 
@@ -62,9 +56,7 @@ impl Raytracer {
         }
     }
 
-    fn shoot_ray(&mut self, ray: Ray, _level: u32) -> Option<&Color> {
-        
-
+    fn shoot_ray(&mut self, ray: Ray, _level: u32) -> Option<Color> {
         let mut min_dist = self.spheres[0].intersect(&ray);
         let mut min_shape = &self.spheres[0];
 
@@ -80,13 +72,22 @@ impl Raytracer {
             return None;
         }
 
+        let sun = Sun {
+            direction: Vector3 {x: 1.0, y: 1.0, z: 1.0},
+            color: Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
+        };
+
         // lambertian reflectance
         let collision_point = ray.origin.add(&ray.direction.scale(min_dist));
         let normal = min_shape.normal(collision_point);
         // min_shape.get_color() * sun.color * normal.dot(sun.direction);
+        let color = min_shape.color.mul(&sun.color);
+        let mut color = color.scale(normal.dot(&sun.direction));
+        color.a = 1.0;
 
 
-        return Some(&min_shape.color);
+
+        return Some(color);
     }
 }
 
@@ -120,6 +121,14 @@ impl Color {
         let b = self.clamp_and_convert(self.b);
         let a = self.clamp_and_convert(self.a);
         image::Rgba::<u8>([r, g, b, a])
+    }
+
+    fn mul(&self, other: &Color) -> Color {
+        Color {r: self.r * other.r, g: self.g * other.g, b: self.b * other.b, a: self.a * other.a}
+    }
+
+    fn scale(&self, f: f64) -> Color {
+        Color {r: self.r * f, g: self.g * f, b: self.b * f, a: self.a * f}
     }
 }
 
@@ -166,10 +175,10 @@ impl Sphere {
         }
     }
 
-    fn normal(&self, point: Vector3) {
+    fn normal(&self, point: Vector3) -> Vector3 {
         // find the vector normal to this shape at given point
         let center_to_point = point.subtract(&self.center);
-        center_to_point.normalize();
+        center_to_point.normalize()
     }
 }
 
@@ -187,10 +196,6 @@ impl Vector3 {
 
     fn subtract(&self, other: &Vector3) -> Vector3 {
         Vector3 {x: self.x - other.x, y: self.y - other.y, z: self.z - other.z}
-    }
-
-    fn mul(&self, other: &Vector3) -> Vector3 {
-        Vector3 {x: self.x * other.x, y: self.y * other.y, z: self.z * other.z}
     }
 
     fn dot(&self, other: &Vector3) -> f64 {
@@ -217,22 +222,18 @@ struct Ray {
     direction: Vector3,
 }
 
-fn save_image(raytracer: &Raytracer) {
-
-}
-
 fn main() {
     let imgx = 100;
-    let imgy = 50;
+    let imgy = 80;
     let s1 = Sphere {
-        center: Vector3{x: 0.0, y: 0.0, z: -1.0},
-        r: 0.3,
-        color: Color {r: 0.0, g: 0.0, b: 0.0, a: 1.0}
+        center: Vector3{x: 1.0, y: -0.8, z: -1.0},
+        r: 0.5,
+        color: Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
     };
     let s2 = Sphere {
-        center: Vector3{x: 1.0, y: 0.8, z: -1.0},
-        r: 0.5,
-        color: Color {r: 0.0, g: 0.0, b: 0.0, a: 1.0}
+        center: Vector3{x: 0.0, y: 0.0, z: -1.0},
+        r: 0.3,
+        color: Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
     };
     let shapes = vec![s1, s2];
 
