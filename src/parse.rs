@@ -5,10 +5,12 @@ use crate::lib::Sun;
 use crate::lib::Vector3;
 use crate::lib::Color;
 use crate::lib::ImageConfig;
+use crate::lib::Bulb;
 
 pub struct Image {
-    pub suns: Vec::<Sun>,
-    pub spheres: Vec::<Sphere>,
+    pub suns: Vec<Sun>,
+    pub bulbs: Vec<Bulb>,
+    pub spheres: Vec<Sphere>,
     pub cfg: ImageConfig,
 }
 
@@ -16,8 +18,9 @@ pub fn parse(filename: &String) -> Image {
     let contents = fs::read_to_string(filename)
         .expect("Something went wrong reading the file");
     
-    let color = Color::white();
+    let mut color = Color::white();
 
+    let mut bulbs = Vec::<Bulb>::new();
     let mut suns = Vec::<Sun>::new();
     let mut spheres = Vec::<Sphere>::new();
     let mut cfg = ImageConfig { width: 0, height: 0, filename: "test.png".to_string() };
@@ -49,7 +52,22 @@ pub fn parse(filename: &String) -> Image {
                 let sun_color = color.clone();
                 suns.push(Sun::new(direction, sun_color));
             }
+            else if word == "color" {
+                let r = words[1].parse::<f64>().unwrap();
+                let g = words[2].parse::<f64>().unwrap();
+                let b = words[3].parse::<f64>().unwrap();
+                color.r = r;
+                color.g = g;
+                color.b = b;
+            }
+            else if word == "bulb" {
+                let x = words[1].parse::<f64>().unwrap();
+                let y = words[2].parse::<f64>().unwrap();
+                let z = words[3].parse::<f64>().unwrap();
+                let position = Vector3 {x: x, y: y, z: z};
+                bulbs.push(Bulb {position, color: color.clone()});
+            }
         }
     }
-    Image {suns, spheres, cfg}
+    Image {suns, bulbs, spheres, cfg}
 }
