@@ -3,14 +3,15 @@ extern crate image;
 use std::env;
 
 
+mod parse;
+mod lib;
+
 use crate::lib::Sphere;
 use crate::lib::Sun;
 use crate::lib::Ray;
 use crate::lib::Vector3;
 use crate::lib::Color;
 
-mod parse;
-mod lib;
 
 
 struct Raytracer {
@@ -105,26 +106,9 @@ fn main() {
         panic!("not enough arguments");
     }
     let filename = &args[1];
-    parse::parse(filename);
+    let img = parse::parse(filename);
 
-    let imgx = 100;
-    let imgy = 80;
-    let s1 = Sphere {
-        center: Vector3{x: 1.0, y: -0.8, z: -1.0},
-        r: 0.5,
-        color: Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
-    };
-    let s2 = Sphere {
-        center: Vector3{x: 0.0, y: 0.0, z: -1.0},
-        r: 0.3,
-        color: Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
-    };
-    let shapes = vec![s1, s2];
-
-    let sun = Sun::new(Vector3 {x: 1.0, y: 1.0, z: 1.0}, Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0});
-    let suns = vec![sun];
-
-    let mut r = Raytracer::new(imgx, imgy, shapes, suns);
+    let mut r = Raytracer::new(img.cfg.width, img.cfg.height, img.spheres, img.suns);
     r.trace_from_camera();
-    r.save("test.png");
+    r.save(&img.cfg.filename);
 }

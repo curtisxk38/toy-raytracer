@@ -21,6 +21,14 @@ pub struct Color {
 }
 
 impl Color {
+	pub fn white() -> Color {
+		Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
+    }
+    
+    pub fn clone(&self) -> Color {
+        return Color {r: self.r, g: self.g, b: self.b, a: self.a}
+    }
+
     pub fn clamp_and_convert(&self, channel: f64) -> u8 {
         let min = 0;
         let max = 255;
@@ -138,4 +146,11 @@ impl Vector3 {
 pub struct Ray {
     pub origin: Vector3,
     pub direction: Vector3,
+}
+
+pub struct ImageConfig {
+	pub width: u32,
+	pub height: u32,
+	pub filename: String
+
 }
