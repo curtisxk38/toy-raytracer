@@ -5,14 +5,16 @@ struct Raytracer {
     width: u32,
     height: u32,
     imgbuf: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
-    spheres: Vec<Sphere>
+    spheres: Vec<Sphere>,
+    suns: Vec<Sun>
 }
 
 impl Raytracer {
-    fn new(width: u32, height: u32, spheres: Vec<Sphere>) -> Raytracer {
+    fn new(width: u32, height: u32, spheres: Vec<Sphere>, suns: Vec<Sun>) -> Raytracer {
         Raytracer { width: width, height: height,
             imgbuf: image::ImageBuffer::new(width, height),
-            spheres: spheres
+            spheres: spheres,
+            suns: suns
         }
     }
 
@@ -46,48 +48,42 @@ impl Raytracer {
             for j in 0..self.height {
                 let ray = self.get_ray_from_pixel(f64::from(i), f64::from(j));
                 let color = self.shoot_ray(ray, 0);
-                let color_bytes = match { color } {
-                    Some(color) => color.to_bytes_color(),
-                    None => image::Rgba::<u8>([0, 0, 0, 0])
-                };
+                let color_bytes = color.to_bytes_color();
                 let pixel = self.imgbuf.get_pixel_mut(i, j);
                 *pixel = color_bytes;
             }
         }
     }
 
-    fn shoot_ray(&mut self, ray: Ray, _level: u32) -> Option<Color> {
+    fn shoot_ray(&mut self, ray: Ray, _level: u32) -> Color {
         let mut min_dist = self.spheres[0].intersect(&ray);
         let mut min_shape = &self.spheres[0];
 
-        for s in &self.spheres[1..] {
-            let intersect_dist = s.intersect(&ray);
+        for sphere in &self.spheres[1..] {
+            let intersect_dist = sphere.intersect(&ray);
             if intersect_dist > 0.0 && (intersect_dist < min_dist || min_dist < 0.0) {
                 min_dist = intersect_dist;
-                min_shape = &s;
+                min_shape = &sphere;
             }
         }
 
         if min_dist < 0.0 {
-            return None;
+            return Color {r: 0.0, g: 0.0, b: 0.0, a: 0.0};
         }
 
-        let sun = Sun {
-            direction: Vector3 {x: 1.0, y: 1.0, z: 1.0},
-            color: Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
-        };
+        let mut color = Color {r: 0.0, g: 0.0, b: 0.0, a: 1.0};
 
         // lambertian reflectance
         let collision_point = ray.origin.add(&ray.direction.scale(min_dist));
         let normal = min_shape.normal(collision_point);
-        // min_shape.get_color() * sun.color * normal.dot(sun.direction);
-        let color = min_shape.color.mul(&sun.color);
-        let mut color = color.scale(normal.dot(&sun.direction));
-        color.a = 1.0;
 
+        for sun in &self.suns {
+            let mut diffuse_color = min_shape.color.mul(&sun.color).scale(normal.dot(&sun.direction));
+            diffuse_color.a = 1.0;
+            color = color.add(&diffuse_color);
+        }
 
-
-        return Some(color);
+        return color;
     }
 }
 
@@ -99,6 +95,12 @@ struct Sun {
     color: Color
 }
 
+impl Sun {
+    fn new(direction: Vector3, color: Color) -> Sun {
+        Sun {direction: direction.normalize(), color }
+    }
+}
+
 struct Color {
     r: f64,
     g: f64,
@@ -108,11 +110,11 @@ struct Color {
 
 impl Color {
     fn clamp_and_convert(&self, channel: f64) -> u8 {
-        let min = 0.0;
-        let max = 1.0;
-        let channel = if channel < min { min } else if channel > max { max } else { channel };
+        let min = 0;
+        let max = 255;
         let channel = channel * 255.0;
-        let channel = channel.round();
+        let channel = channel.round() as i64;
+        let channel = if channel < min { min } else if channel > max { max } else { channel };
         channel as u8
     }
     fn to_bytes_color(&self) -> image::Rgba<u8> {
@@ -121,6 +123,10 @@ impl Color {
         let b = self.clamp_and_convert(self.b);
         let a = self.clamp_and_convert(self.a);
         image::Rgba::<u8>([r, g, b, a])
+    }
+
+    fn add(&self, other: &Color) -> Color {
+        Color {r: self.r + other.r, g: self.g + other.g, b: self.b + other.b, a: self.a + other.a}
     }
 
     fn mul(&self, other: &Color) -> Color {
@@ -237,7 +243,10 @@ fn main() {
     };
     let shapes = vec![s1, s2];
 
-    let mut r = Raytracer::new(imgx, imgy, shapes);
+    let sun = Sun::new(Vector3 {x: 1.0, y: 1.0, z: 1.0}, Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0});
+    let suns = vec![sun];
+
+    let mut r = Raytracer::new(imgx, imgy, shapes, suns);
     r.trace_from_camera();
     r.save("test.png");
 }
