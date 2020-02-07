@@ -14,6 +14,16 @@ use crate::lib::Color;
 use crate::lib::Bulb;
 
 
+fn clamp(value: f64) -> f64 {
+    if value < 0.0 {
+        0.0
+    } else if value > 1.0 {
+        1.0
+    } else {
+        value
+    }
+}
+
 struct Raytracer {
     width: u32,
     height: u32,
@@ -93,14 +103,16 @@ impl Raytracer {
         let normal = min_shape.normal(&collision_point);
 
         for sun in &self.suns {
-            let mut diffuse_color = min_shape.color.mul(&sun.color).scale(normal.dot(&sun.direction));
+            let intensity = clamp(normal.dot(&sun.direction));
+            let mut diffuse_color = min_shape.color.mul(&sun.color).scale(intensity);
             diffuse_color.a = 1.0;
             color = color.add(&diffuse_color);
         }
 
         for bulb in &self.bulbs {
-			let to_bulb = bulb.position.subtract(&collision_point);
-            let mut diffuse_color = min_shape.color.mul(&bulb.color).scale(normal.dot(&to_bulb.normalize()));
+            let to_bulb = bulb.position.subtract(&collision_point);
+            let intensity = clamp(normal.dot(&to_bulb.normalize()));
+            let mut diffuse_color = min_shape.color.mul(&bulb.color).scale(intensity);
             // scale illumination based on 1 over distance between squared
             diffuse_color = diffuse_color.scale(1.0 / to_bulb.dot(&to_bulb));
 			diffuse_color.a = 1.0;
