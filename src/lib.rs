@@ -145,12 +145,22 @@ impl Vector3 {
         let mag = self.magnitude();
         Vector3 { x: self.x / mag, y: self.y / mag, z: self.z / mag }
     }
+
+    pub fn clone(&self) -> Vector3 {
+        Vector3 {x: self.x, y: self.y, z: self.z}
+    }
 }
 
 #[derive(Debug)]
 pub struct Ray {
     pub origin: Vector3,
     pub direction: Vector3,
+}
+
+impl Ray {
+    pub fn new(origin: Vector3, direction: Vector3) -> Ray {
+        Ray { origin, direction }
+    }
 }
 
 pub struct ImageConfig {

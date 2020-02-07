@@ -1,7 +1,7 @@
 extern crate image;
 
 use std::env;
-
+use std::ptr;
 
 mod parse;
 mod lib;
@@ -31,6 +31,10 @@ struct Raytracer {
     spheres: Vec<Sphere>,
     suns: Vec<Sun>,
     bulbs: Vec<Bulb>,
+    eye: Vector3,
+    forward: Vector3,
+    right: Vector3,
+    up: Vector3,
 }
 
 impl Raytracer {
@@ -39,7 +43,11 @@ impl Raytracer {
             imgbuf: image::ImageBuffer::new(width, height),
             spheres: spheres,
             suns: suns,
-            bulbs: bulbs
+            bulbs: bulbs,
+            eye: Vector3 {x: 0.0, y: 0.0, z: 0.0},
+            forward: Vector3 {x: 0.0, y: 0.0, z: -1.0},
+            right: Vector3 {x: 1.0, y: 0.0, z: 0.0},
+            up: Vector3 {x: 0.0, y: 1.0, z: 0.0},
         }
     }
 
@@ -47,11 +55,8 @@ impl Raytracer {
         self.imgbuf.save(filename).unwrap();
     }
 
-    fn get_ray_from_pixel(&mut self, x: f64, y: f64) -> Ray {
-        let eye = Vector3 {x: 0.0, y: 0.0, z: 0.0};
-        let forward = Vector3 {x: 0.0, y: 0.0, z: -1.0};
-        let right = Vector3 {x: 1.0, y: 0.0, z: 0.0};
-        let up = Vector3 {x: 0.0, y: 1.0, z: 0.0};
+    fn get_ray_from_pixel(&self, x: f64, y: f64) -> Ray {
+        
 
         let float_w = f64::from(self.width);
         let float_h = f64::from(self.height);
@@ -60,12 +65,11 @@ impl Raytracer {
         let sx = (2.0 * x - float_w) / max_dim;
         let sy = (float_h - 2.0 * y) / max_dim;
 
-        let dir = up.scale(sy);
-        let dir = dir.add(&(right.scale(sx)));
-        let dir = dir.add(&forward);
+        let dir = self.up.scale(sy);
+        let dir = dir.add(&(self.right.scale(sx)));
+        let dir = dir.add(&self.forward);
 
-        return Ray {origin: eye, direction: dir.normalize()};
-
+        Ray::new(self.eye.clone(), dir)
     }
 
     fn trace_from_camera(&mut self) {
@@ -80,7 +84,39 @@ impl Raytracer {
         }
     }
 
-    fn shoot_ray(&mut self, ray: Ray, _level: u32) -> Color {
+    // originating shape = shape the shadow ray is coming from
+    //  shadow ray shouldn't intersect the shape it came from
+    //  but it may if we don't explicitly check (due to float imprecision)
+    fn is_in_sun_shadow(&self, originating_shape: &Sphere, col_point: &Vector3, sun: &Sun) -> bool {
+        return false;
+        for sphere in &self.spheres {
+            let shadow_ray = Ray::new(col_point.clone(), sun.direction.clone());
+            if !ptr::eq(sphere, originating_shape) && sphere.intersect(&shadow_ray) >= 0.0 {
+				return true;
+			}
+        }
+        return false;
+    }
+
+    fn is_in_bulb_shadow(&self, originating_shape: &Sphere, col_point: &Vector3, bulb: &Bulb) -> bool {
+        return false;
+        let to_bulb = bulb.position.subtract(col_point);
+		let dist_to_bulb = to_bulb.magnitude();
+		let shadow_ray = Ray::new(col_point.clone(), to_bulb.clone());
+		for sphere in &self.spheres {
+            if !ptr::eq(sphere, originating_shape) {
+                let intersect = sphere.intersect(&shadow_ray);
+                // if there is an intersection, and the intersection is in between the bulb and the shadow ray origin
+                if intersect >= 0.0 && intersect < dist_to_bulb {
+                    return true;
+                }
+            }
+
+		}
+		return false;
+    }
+
+    fn shoot_ray(&self, ray: Ray, _level: u32) -> Color {
         let mut min_dist = self.spheres[0].intersect(&ray);
         let mut min_shape = &self.spheres[0];
 
@@ -103,20 +139,24 @@ impl Raytracer {
         let normal = min_shape.normal(&collision_point);
 
         for sun in &self.suns {
-            let intensity = clamp(normal.dot(&sun.direction));
-            let mut diffuse_color = min_shape.color.mul(&sun.color).scale(intensity);
-            diffuse_color.a = 1.0;
-            color = color.add(&diffuse_color);
+            if !self.is_in_sun_shadow(&min_shape, &collision_point, &sun) {
+                let intensity = clamp(normal.dot(&sun.direction));
+                let mut diffuse_color = min_shape.color.mul(&sun.color).scale(intensity);
+                diffuse_color.a = 1.0;
+                color = color.add(&diffuse_color);
+            }
         }
 
         for bulb in &self.bulbs {
-            let to_bulb = bulb.position.subtract(&collision_point);
-            let intensity = clamp(normal.dot(&to_bulb.normalize()));
-            let mut diffuse_color = min_shape.color.mul(&bulb.color).scale(intensity);
-            // scale illumination based on 1 over distance between squared
-            diffuse_color = diffuse_color.scale(1.0 / to_bulb.dot(&to_bulb));
-			diffuse_color.a = 1.0;
-			color = color.add(&diffuse_color);	
+            if !self.is_in_bulb_shadow(&min_shape, &collision_point, &bulb) {
+                let to_bulb = bulb.position.subtract(&collision_point);
+                let intensity = clamp(normal.dot(&to_bulb.normalize()));
+                let mut diffuse_color = min_shape.color.mul(&bulb.color).scale(intensity);
+                // scale illumination based on 1 over distance between squared
+                diffuse_color = diffuse_color.scale(1.0 / to_bulb.dot(&to_bulb));
+                diffuse_color.a = 1.0;
+                color = color.add(&diffuse_color);	
+            }
 		}
 
         return color;
