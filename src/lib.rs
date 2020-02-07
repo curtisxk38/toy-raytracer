@@ -1,4 +1,9 @@
 
+pub struct Bulb {
+    pub position: Vector3,
+    pub color: Color
+}
+
 // a sun light infinitely far away in the <direction> direction.
 // The “direction to light” vector in the lighting equation is given direction
 //   no matter where the object is.
@@ -101,7 +106,7 @@ impl Sphere {
         }
     }
 
-    pub fn normal(&self, point: Vector3) -> Vector3 {
+    pub fn normal(&self, point: &Vector3) -> Vector3 {
         // find the vector normal to this shape at given point
         let center_to_point = point.subtract(&self.center);
         center_to_point.normalize()

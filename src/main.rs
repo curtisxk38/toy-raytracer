@@ -11,23 +11,35 @@ use crate::lib::Sun;
 use crate::lib::Ray;
 use crate::lib::Vector3;
 use crate::lib::Color;
+use crate::lib::Bulb;
 
 
+fn clamp(value: f64) -> f64 {
+    if value < 0.0 {
+        0.0
+    } else if value > 1.0 {
+        1.0
+    } else {
+        value
+    }
+}
 
 struct Raytracer {
     width: u32,
     height: u32,
     imgbuf: image::ImageBuffer<image::Rgba<u8>, Vec<u8>>,
     spheres: Vec<Sphere>,
-    suns: Vec<Sun>
+    suns: Vec<Sun>,
+    bulbs: Vec<Bulb>,
 }
 
 impl Raytracer {
-    fn new(width: u32, height: u32, spheres: Vec<Sphere>, suns: Vec<Sun>) -> Raytracer {
+    fn new(width: u32, height: u32, spheres: Vec<Sphere>, suns: Vec<Sun>, bulbs: Vec<Bulb>) -> Raytracer {
         Raytracer { width: width, height: height,
             imgbuf: image::ImageBuffer::new(width, height),
             spheres: spheres,
-            suns: suns
+            suns: suns,
+            bulbs: bulbs
         }
     }
 
@@ -88,13 +100,24 @@ impl Raytracer {
 
         // lambertian reflectance
         let collision_point = ray.origin.add(&ray.direction.scale(min_dist));
-        let normal = min_shape.normal(collision_point);
+        let normal = min_shape.normal(&collision_point);
 
         for sun in &self.suns {
-            let mut diffuse_color = min_shape.color.mul(&sun.color).scale(normal.dot(&sun.direction));
+            let intensity = clamp(normal.dot(&sun.direction));
+            let mut diffuse_color = min_shape.color.mul(&sun.color).scale(intensity);
             diffuse_color.a = 1.0;
             color = color.add(&diffuse_color);
         }
+
+        for bulb in &self.bulbs {
+            let to_bulb = bulb.position.subtract(&collision_point);
+            let intensity = clamp(normal.dot(&to_bulb.normalize()));
+            let mut diffuse_color = min_shape.color.mul(&bulb.color).scale(intensity);
+            // scale illumination based on 1 over distance between squared
+            diffuse_color = diffuse_color.scale(1.0 / to_bulb.dot(&to_bulb));
+			diffuse_color.a = 1.0;
+			color = color.add(&diffuse_color);	
+		}
 
         return color;
     }
@@ -108,7 +131,7 @@ fn main() {
     let filename = &args[1];
     let img = parse::parse(filename);
 
-    let mut r = Raytracer::new(img.cfg.width, img.cfg.height, img.spheres, img.suns);
+    let mut r = Raytracer::new(img.cfg.width, img.cfg.height, img.spheres, img.suns, img.bulbs);
     r.trace_from_camera();
     r.save(&img.cfg.filename);
 }
