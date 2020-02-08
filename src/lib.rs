@@ -159,6 +159,7 @@ pub struct Ray {
 
 impl Ray {
     pub fn new(origin: Vector3, direction: Vector3) -> Ray {
+        let direction = direction.normalize();
         Ray { origin, direction }
     }
 }

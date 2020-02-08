@@ -88,7 +88,7 @@ impl Raytracer {
     //  shadow ray shouldn't intersect the shape it came from
     //  but it may if we don't explicitly check (due to float imprecision)
     fn is_in_sun_shadow(&self, originating_shape: &Sphere, col_point: &Vector3, sun: &Sun) -> bool {
-        return false;
+        //return false;
         for sphere in &self.spheres {
             let shadow_ray = Ray::new(col_point.clone(), sun.direction.clone());
             if !ptr::eq(sphere, originating_shape) && sphere.intersect(&shadow_ray) >= 0.0 {
@@ -99,7 +99,7 @@ impl Raytracer {
     }
 
     fn is_in_bulb_shadow(&self, originating_shape: &Sphere, col_point: &Vector3, bulb: &Bulb) -> bool {
-        return false;
+        //return false;
         let to_bulb = bulb.position.subtract(col_point);
 		let dist_to_bulb = to_bulb.magnitude();
 		let shadow_ray = Ray::new(col_point.clone(), to_bulb.clone());
@@ -144,7 +144,7 @@ impl Raytracer {
                 let mut diffuse_color = min_shape.color.mul(&sun.color).scale(intensity);
                 diffuse_color.a = 1.0;
                 color = color.add(&diffuse_color);
-            }
+           }
         }
 
         for bulb in &self.bulbs {
@@ -157,7 +157,7 @@ impl Raytracer {
                 diffuse_color.a = 1.0;
                 color = color.add(&diffuse_color);	
             }
-		}
+        }
 
         return color;
     }
