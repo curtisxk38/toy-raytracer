@@ -72,6 +72,18 @@ impl Raytracer {
         Ray::new(self.eye.clone(), dir)
     }
 
+    // go thru spheres and check if the camera is inside them
+    //  we need to know this, in order to flip the normals of spheres that contain the camera
+    fn check_spheres(&mut self) {
+        for sphere in &mut self.spheres {
+            // camera is located at eye
+            let dist = self.eye.subtract(&sphere.center);
+            if dist.magnitude() < sphere.r {
+                sphere.contains_camera = true;
+            }
+        }
+    }
+
     fn trace_from_camera(&mut self) {
         for i in 0..self.width {
             for j in 0..self.height {
@@ -136,7 +148,13 @@ impl Raytracer {
 
         // lambertian reflectance
         let collision_point = ray.origin.add(&ray.direction.scale(min_dist));
-        let normal = min_shape.normal(&collision_point);
+        let mut normal = min_shape.normal(&collision_point);
+        
+        // flip normal if camera is inside sphere
+        //  since we want the inner surface of the sphere
+        if min_shape.contains_camera {
+            normal = normal.scale(-1.0); 
+        }
 
         for sun in &self.suns {
             if !self.is_in_sun_shadow(&min_shape, &collision_point, &sun) {
@@ -172,6 +190,7 @@ fn main() {
     let img = parse::parse(filename);
 
     let mut r = Raytracer::new(img.cfg.width, img.cfg.height, img.spheres, img.suns, img.bulbs);
+    r.check_spheres();
     r.trace_from_camera();
     r.save(&img.cfg.filename);
 }

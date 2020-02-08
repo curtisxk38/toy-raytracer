@@ -42,7 +42,7 @@ pub fn parse(filename: &String) -> Image {
                 let center = Vector3 {x: x, y: y, z: z};
                 let radius = words[4].parse::<f64>().unwrap();
                 let sphere_color = color.clone();
-                spheres.push( Sphere {center: center, r: radius, color: sphere_color});
+                spheres.push(Sphere::new(center, radius, sphere_color));
             }
             else if word == "sun" {
                 let x = words[1].parse::<f64>().unwrap();

@@ -66,10 +66,14 @@ impl Color {
 pub struct Sphere {
     pub center: Vector3,
     pub r: f64,
-    pub color: Color
+    pub color: Color,
+    pub contains_camera: bool,
 }
 
 impl Sphere {
+    pub fn new(center: Vector3, radius: f64, color: Color) -> Sphere {
+        Sphere { center: center, r: radius, color: color, contains_camera: false }
+    }
     pub fn intersect(&self, ray: &Ray) -> f64 {
         // vector from ray origin to center of sphere
         let oc = self.center.subtract(&ray.origin);
