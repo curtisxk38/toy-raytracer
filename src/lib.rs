@@ -66,10 +66,14 @@ impl Color {
 pub struct Sphere {
     pub center: Vector3,
     pub r: f64,
-    pub color: Color
+    pub color: Color,
+    pub contains_camera: bool,
 }
 
 impl Sphere {
+    pub fn new(center: Vector3, radius: f64, color: Color) -> Sphere {
+        Sphere { center: center, r: radius, color: color, contains_camera: false }
+    }
     pub fn intersect(&self, ray: &Ray) -> f64 {
         // vector from ray origin to center of sphere
         let oc = self.center.subtract(&ray.origin);
@@ -145,12 +149,23 @@ impl Vector3 {
         let mag = self.magnitude();
         Vector3 { x: self.x / mag, y: self.y / mag, z: self.z / mag }
     }
+
+    pub fn clone(&self) -> Vector3 {
+        Vector3 {x: self.x, y: self.y, z: self.z}
+    }
 }
 
 #[derive(Debug)]
 pub struct Ray {
     pub origin: Vector3,
     pub direction: Vector3,
+}
+
+impl Ray {
+    pub fn new(origin: Vector3, direction: Vector3) -> Ray {
+        let direction = direction.normalize();
+        Ray { origin, direction }
+    }
 }
 
 pub struct ImageConfig {
