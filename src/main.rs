@@ -166,7 +166,7 @@ impl Raytracer {
             let temp_scale = 2.0 * normal.dot(&ray.direction);
             let scaled_n = normal.scale(temp_scale);
             let new_dir = ray.direction.subtract(&scaled_n);
-            let new_ray = Ray::new(collision_point.clone(), new_dir);
+            let new_ray = Ray::new_with_originator(collision_point.clone(), new_dir, min_shape);
             shiny_color = self.shoot_ray(new_ray, level - 1);
         }
         
