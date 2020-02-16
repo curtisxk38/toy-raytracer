@@ -89,7 +89,7 @@ impl Raytracer {
         for i in 0..self.width {
             for j in 0..self.height {
                 let ray = self.get_ray_from_pixel(f64::from(i), f64::from(j));
-                let color = self.shoot_ray(ray, self.bounces);
+                let color = self.shoot_ray(ray, self.bounces, true);
                 let color_bytes = color.to_bytes_color();
                 let pixel = self.imgbuf.get_pixel_mut(i, j);
                 *pixel = color_bytes;
@@ -124,7 +124,7 @@ impl Raytracer {
 		return false;
     }
 
-    fn shoot_ray(&self, ray: Ray, level: i32) -> Color {
+    fn shoot_ray(&self, ray: Ray, level: i32, shoot_shadows: bool) -> Color {
         // stop bouncing new rays
         if level < 0 {
             return Color::transparent();
@@ -167,7 +167,7 @@ impl Raytracer {
             let scaled_n = normal.scale(temp_scale);
             let new_dir = ray.direction.subtract(&scaled_n);
             let new_ray = Ray::new_with_originator(collision_point.clone(), new_dir, min_shape);
-            shiny_color = self.shoot_ray(new_ray, level - 1);
+            shiny_color = self.shoot_ray(new_ray, level - 1, true);
         }
 
         // transparency
@@ -199,32 +199,36 @@ impl Raytracer {
                 new_dir = ray.direction.scale(eta).subtract(&normal.scale(temp_scale)); 
             }
             let new_ray = Ray::new_with_originator(collision_point.clone(), new_dir, min_shape);
-            trans_color = self.shoot_ray(new_ray, level - 1);
+            trans_color = self.shoot_ray(new_ray, level - 1, false);
         }
 
         // lambertian reflectance
         let mut diffuse_color = Color::black();
 
-        for sun in &self.suns {
-            if !self.is_in_sun_shadow(&min_shape, &collision_point, &sun) {
-                let intensity = clamp(normal.dot(&sun.direction));
-                let mut color_from_light = min_shape.color.mul(&sun.color).scale(intensity);
-                color_from_light.a = 1.0;
-                diffuse_color = diffuse_color.add(&color_from_light);
-           }
-        }
-
-        for bulb in &self.bulbs {
-            if !self.is_in_bulb_shadow(&min_shape, &collision_point, &bulb) {
-                let to_bulb = bulb.position.subtract(&collision_point);
-                let intensity = clamp(normal.dot(&to_bulb.normalize()));
-                let mut color_from_light = min_shape.color.mul(&bulb.color).scale(intensity);
-                // scale illumination based on 1 over distance between squared
-                color_from_light = color_from_light.scale(1.0 / to_bulb.dot(&to_bulb));
-                color_from_light.a = 1.0;
-                diffuse_color = diffuse_color.add(&color_from_light);	
+        if shoot_shadows {
+            for sun in &self.suns {
+                if !self.is_in_sun_shadow(&min_shape, &collision_point, &sun) {
+                    let intensity = clamp(normal.dot(&sun.direction));
+                    let mut color_from_light = min_shape.color.mul(&sun.color).scale(intensity);
+                    color_from_light.a = 1.0;
+                    diffuse_color = diffuse_color.add(&color_from_light);
+               }
+            }
+    
+            for bulb in &self.bulbs {
+                if !self.is_in_bulb_shadow(&min_shape, &collision_point, &bulb) {
+                    let to_bulb = bulb.position.subtract(&collision_point);
+                    let intensity = clamp(normal.dot(&to_bulb.normalize()));
+                    let mut color_from_light = min_shape.color.mul(&bulb.color).scale(intensity);
+                    // scale illumination based on 1 over distance between squared
+                    color_from_light = color_from_light.scale(1.0 / to_bulb.dot(&to_bulb));
+                    color_from_light.a = 1.0;
+                    diffuse_color = diffuse_color.add(&color_from_light);	
+                }
             }
         }
+
+
 
         // temporary, only use red channel of shininess for all colors
         let shiny_mult = min_shape.shininess.r;
