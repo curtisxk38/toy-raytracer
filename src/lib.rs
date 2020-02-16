@@ -29,6 +29,14 @@ impl Color {
 	pub fn white() -> Color {
 		Color {r: 1.0, g: 1.0, b: 1.0, a: 1.0}
     }
+
+    pub fn black() -> Color {
+        Color {r: 0.0, g: 0.0, b: 0.0, a: 1.0}
+    }
+
+    pub fn transparent() -> Color {
+        Color {r: 0.0, g: 0.0, b: 0.0, a: 0.0}
+    }
     
     pub fn clone(&self) -> Color {
         return Color {r: self.r, g: self.g, b: self.b, a: self.a}
@@ -54,6 +62,10 @@ impl Color {
         Color {r: self.r + other.r, g: self.g + other.g, b: self.b + other.b, a: self.a + other.a}
     }
 
+    pub fn subtract(&self, other: &Color) -> Color {
+        Color {r: self.r - other.r, g: self.g - other.g, b: self.b - other.b, a: self.a - other.a}
+    }
+
     pub fn mul(&self, other: &Color) -> Color {
         Color {r: self.r * other.r, g: self.g * other.g, b: self.b * other.b, a: self.a * other.a}
     }
@@ -68,11 +80,14 @@ pub struct Sphere {
     pub r: f64,
     pub color: Color,
     pub contains_camera: bool,
+    pub shininess: Color,
+    pub transparency: Color,
 }
 
 impl Sphere {
-    pub fn new(center: Vector3, radius: f64, color: Color) -> Sphere {
-        Sphere { center: center, r: radius, color: color, contains_camera: false }
+    pub fn new(center: Vector3, radius: f64, color: Color, shininess: Color, transparency: Color) -> Sphere {
+        Sphere { center: center, r: radius, color: color,
+            shininess: shininess, transparency: transparency, contains_camera: false }
     }
     pub fn intersect(&self, ray: &Ray) -> f64 {
         // vector from ray origin to center of sphere
