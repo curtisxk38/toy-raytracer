@@ -169,7 +169,38 @@ impl Raytracer {
             let new_ray = Ray::new_with_originator(collision_point.clone(), new_dir, min_shape);
             shiny_color = self.shoot_ray(new_ray, level - 1);
         }
-        
+
+        // transparency
+        /*
+        GLSL spec:
+        For the incident vector I and surface normal N, and the ratio of indices of refraction eta, return the refraction vector.
+        The result is computed by:
+        k = 1.0 - eta * eta * (1.0 - dot(N, I) * dot(N, I))
+        if (k < 0.0)
+            return genType(0.0)
+        else
+            return eta * I - (eta * dot(N, I) + sqrt(k)) * N
+        The input parameters for the incident vector I and the surface normal N must already be normalized to get the desired results.
+        */
+        let mut trans_color = Color::black();
+        if min_shape.transparency.r != 0.0 {
+            // index of refraction
+            let eta = 1.458;
+            let normal_dot_incident = normal.dot(&ray.direction);
+            let k = 1.0 - eta * eta * (1.0 - normal_dot_incident * normal_dot_incident);
+            let new_dir;
+            if k < 0.0 {
+                // we have total internal reflection:
+                let temp_scale = 2.0 * normal_dot_incident;
+                let scaled_n = normal.scale(temp_scale);
+                new_dir = ray.direction.subtract(&scaled_n);
+            } else {
+                let temp_scale = eta * normal_dot_incident + k.sqrt();
+                new_dir = ray.direction.scale(eta).subtract(&normal.scale(temp_scale)); 
+            }
+            let new_ray = Ray::new_with_originator(collision_point.clone(), new_dir, min_shape);
+            trans_color = self.shoot_ray(new_ray, level - 1);
+        }
 
         // lambertian reflectance
         let mut diffuse_color = Color::black();
@@ -197,12 +228,14 @@ impl Raytracer {
 
         // temporary, only use red channel of shininess for all colors
         let shiny_mult = min_shape.shininess.r;
-        let diffuse_mult = 1.0 - shiny_mult;
+        let trans_mult = (1.0 - shiny_mult) * min_shape.transparency.r;
+        let diffuse_mult = 1.0 - shiny_mult - trans_mult;
 
         let weighted_diffuse = diffuse_color.scale(diffuse_mult);
         let weighted_shininess = shiny_color.scale(shiny_mult);
+        let weighted_transparency = trans_color.scale(trans_mult);
 
-        let mut final_color = weighted_diffuse.add(&weighted_shininess);
+        let mut final_color = weighted_diffuse.add(&weighted_shininess).add(&weighted_transparency);
         final_color.a = 1.0;
 
         return final_color;
