@@ -1,3 +1,5 @@
+use std::ptr;
+
 
 pub struct Bulb {
     pub position: Vector3,
@@ -18,6 +20,7 @@ impl Sun {
     }
 }
 
+#[derive(Debug)]
 pub struct Color {
     pub r: f64,
     pub g: f64,
@@ -75,6 +78,7 @@ impl Color {
     }
 }
 
+#[derive(Debug)]
 pub struct Sphere {
     pub center: Vector3,
     pub r: f64,
@@ -90,6 +94,16 @@ impl Sphere {
             shininess: shininess, transparency: transparency, contains_camera: false }
     }
     pub fn intersect(&self, ray: &Ray) -> f64 {
+        // if the ray originated from this sphere, they can't collide
+        //  without this check, it may seem like they collide due to float inaccuracies
+        let is_originator = match ray.originating_shape {
+            Some(originator) => ptr::eq(self, originator),
+            None => false
+        };
+        if is_originator {
+            return -1.0 // no collision
+        }
+
         // vector from ray origin to center of sphere
         let oc = self.center.subtract(&ray.origin);
         let oc_mag_squared = oc.dot(&oc);
@@ -171,15 +185,20 @@ impl Vector3 {
 }
 
 #[derive(Debug)]
-pub struct Ray {
+pub struct Ray<'a> {
     pub origin: Vector3,
     pub direction: Vector3,
+    pub originating_shape: Option<&'a Sphere>,
 }
 
-impl Ray {
-    pub fn new(origin: Vector3, direction: Vector3) -> Ray {
+impl<'b> Ray<'b> {
+    pub fn new(origin: Vector3, direction: Vector3) -> Ray<'b> {
         let direction = direction.normalize();
-        Ray { origin, direction }
+        Ray { origin, direction, originating_shape: None }
+    }
+    pub fn new_with_originator<'a>(origin: Vector3, direction: Vector3, sphere: &'a Sphere) -> Ray<'a> {
+        let direction = direction.normalize();
+        Ray { origin, direction, originating_shape: Some(sphere) }
     }
 }
 

@@ -1,7 +1,6 @@
 extern crate image;
 
 use std::env;
-use std::ptr;
 
 mod parse;
 mod lib;
@@ -102,10 +101,9 @@ impl Raytracer {
     //  shadow ray shouldn't intersect the shape it came from
     //  but it may if we don't explicitly check (due to float imprecision)
     fn is_in_sun_shadow(&self, originating_shape: &Sphere, col_point: &Vector3, sun: &Sun) -> bool {
-        //return false;
+        let shadow_ray = Ray::new_with_originator(col_point.clone(), sun.direction.clone(), originating_shape);
         for sphere in &self.spheres {
-            let shadow_ray = Ray::new(col_point.clone(), sun.direction.clone());
-            if !ptr::eq(sphere, originating_shape) && sphere.intersect(&shadow_ray) >= 0.0 {
+            if sphere.intersect(&shadow_ray) >= 0.0 {
 				return true;
 			}
         }
@@ -113,19 +111,15 @@ impl Raytracer {
     }
 
     fn is_in_bulb_shadow(&self, originating_shape: &Sphere, col_point: &Vector3, bulb: &Bulb) -> bool {
-        //return false;
         let to_bulb = bulb.position.subtract(col_point);
 		let dist_to_bulb = to_bulb.magnitude();
-		let shadow_ray = Ray::new(col_point.clone(), to_bulb.clone());
+		let shadow_ray = Ray::new_with_originator(col_point.clone(), to_bulb.clone(), originating_shape);
 		for sphere in &self.spheres {
-            if !ptr::eq(sphere, originating_shape) {
-                let intersect = sphere.intersect(&shadow_ray);
-                // if there is an intersection, and the intersection is in between the bulb and the shadow ray origin
-                if intersect >= 0.0 && intersect < dist_to_bulb {
-                    return true;
-                }
+            let intersect = sphere.intersect(&shadow_ray);
+            // if there is an intersection, and the intersection is in between the bulb and the shadow ray origin
+            if intersect >= 0.0 && intersect < dist_to_bulb {
+                return true;
             }
-
 		}
 		return false;
     }
