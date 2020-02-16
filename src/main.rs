@@ -76,6 +76,7 @@ impl Raytracer {
     fn trace_from_camera(&mut self) {
         for i in 0..self.width {
             for j in 0..self.height {
+                println!("pixel: {}, {}", i, j);
                 let ray = self.get_ray_from_pixel(f64::from(i), f64::from(j));
                 let color = self.shoot_ray(ray, self.bounces);
                 let color_bytes = color.to_bytes_color();
@@ -135,6 +136,8 @@ impl Raytracer {
             return Color::transparent();
         }
 
+        println!("lvl {}: {:?}", level, min_shape);
+
         let collision_point = ray.origin.add(&ray.direction.scale(min_dist));
         let mut normal = min_shape.normal(&collision_point);
         
@@ -159,6 +162,7 @@ impl Raytracer {
             let new_dir = ray.direction.subtract(&scaled_n);
             let collision_point = collision_point.add(&normal.scale(bias));
             let new_ray = Ray::new(collision_point, new_dir);
+            println!("reflect");
             shiny_color = self.shoot_ray(new_ray, level - 1);
         }
 
@@ -185,9 +189,11 @@ impl Raytracer {
                 // we have total internal reflection:
                 let temp_scale = 2.0 * normal_dot_incident;
                 let scaled_n = normal.scale(temp_scale);
+                println!("total internal reflect");
                 new_dir = ray.direction.subtract(&scaled_n);
             } else {
                 let temp_scale = eta * normal_dot_incident + k.sqrt();
+                println!("refract");
                 new_dir = ray.direction.scale(eta).subtract(&normal.scale(temp_scale)); 
             }
             let collision_point = collision_point.subtract(&normal.scale(bias));
@@ -238,7 +244,9 @@ impl Raytracer {
 
         let mut final_color = weighted_diffuse.add(&weighted_shininess).add(&weighted_transparency);
         final_color.a = 1.0;
-        
+
+        println!("{}: -> {:?}", level, final_color);
+
         return final_color;
     }
 }
