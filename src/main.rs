@@ -73,23 +73,11 @@ impl Raytracer {
         Ray::new(self.eye.clone(), dir)
     }
 
-    // go thru spheres and check if the camera is inside them
-    //  we need to know this, in order to flip the normals of spheres that contain the camera
-    fn check_spheres(&mut self) {
-        for sphere in &mut self.spheres {
-            // camera is located at eye
-            let dist = self.eye.subtract(&sphere.center);
-            if dist.magnitude() < sphere.r {
-                sphere.contains_camera = true;
-            }
-        }
-    }
-
     fn trace_from_camera(&mut self) {
         for i in 0..self.width {
             for j in 0..self.height {
                 let ray = self.get_ray_from_pixel(f64::from(i), f64::from(j));
-                let color = self.shoot_ray(ray, self.bounces, true);
+                let color = self.shoot_ray(ray, self.bounces);
                 let color_bytes = color.to_bytes_color();
                 let pixel = self.imgbuf.get_pixel_mut(i, j);
                 *pixel = color_bytes;
@@ -100,8 +88,8 @@ impl Raytracer {
     // originating shape = shape the shadow ray is coming from
     //  shadow ray shouldn't intersect the shape it came from
     //  but it may if we don't explicitly check (due to float imprecision)
-    fn is_in_sun_shadow(&self, originating_shape: &Sphere, col_point: &Vector3, sun: &Sun) -> bool {
-        let shadow_ray = Ray::new_with_originator(col_point.clone(), sun.direction.clone(), originating_shape);
+    fn is_in_sun_shadow(&self, col_point: &Vector3, sun: &Sun) -> bool {
+        let shadow_ray = Ray::new(col_point.clone(), sun.direction.clone());
         for sphere in &self.spheres {
             if sphere.intersect(&shadow_ray) >= 0.0 {
 				return true;
@@ -110,10 +98,10 @@ impl Raytracer {
         return false;
     }
 
-    fn is_in_bulb_shadow(&self, originating_shape: &Sphere, col_point: &Vector3, bulb: &Bulb) -> bool {
+    fn is_in_bulb_shadow(&self, col_point: &Vector3, bulb: &Bulb) -> bool {
         let to_bulb = bulb.position.subtract(col_point);
 		let dist_to_bulb = to_bulb.magnitude();
-		let shadow_ray = Ray::new_with_originator(col_point.clone(), to_bulb.clone(), originating_shape);
+		let shadow_ray = Ray::new(col_point.clone(), to_bulb.clone());
 		for sphere in &self.spheres {
             let intersect = sphere.intersect(&shadow_ray);
             // if there is an intersection, and the intersection is in between the bulb and the shadow ray origin
@@ -124,7 +112,8 @@ impl Raytracer {
 		return false;
     }
 
-    fn shoot_ray(&self, ray: Ray, level: i32, shoot_shadows: bool) -> Color {
+    fn shoot_ray(&self, ray: Ray, level: i32) -> Color {
+        let bias = 0.0001;
         // stop bouncing new rays
         if level < 0 {
             return Color::transparent();
@@ -149,10 +138,12 @@ impl Raytracer {
         let collision_point = ray.origin.add(&ray.direction.scale(min_dist));
         let mut normal = min_shape.normal(&collision_point);
         
-        // flip normal if camera is inside sphere
-        //  since we want the inner surface of the sphere
-        if min_shape.contains_camera {
+        // If the normal and the view direction are not opposite to each other
+        // reverse the normal direction. That also means we are inside the sphere so correct ior
+        let mut ior = 1.458;
+        if ray.direction.dot(&normal) > 0.0 {
             normal = normal.scale(-1.0); 
+            ior = 1.0 / ior;
         }
         
         // shininess
@@ -166,8 +157,9 @@ impl Raytracer {
             let temp_scale = 2.0 * normal.dot(&ray.direction);
             let scaled_n = normal.scale(temp_scale);
             let new_dir = ray.direction.subtract(&scaled_n);
-            let new_ray = Ray::new_with_originator(collision_point.clone(), new_dir, min_shape);
-            shiny_color = self.shoot_ray(new_ray, level - 1, true);
+            let collision_point = collision_point.add(&normal.scale(bias));
+            let new_ray = Ray::new(collision_point, new_dir);
+            shiny_color = self.shoot_ray(new_ray, level - 1);
         }
 
         // transparency
@@ -185,7 +177,7 @@ impl Raytracer {
         let mut trans_color = Color::black();
         if min_shape.transparency.r != 0.0 {
             // index of refraction
-            let eta = 1.458;
+            let eta = ior;
             let normal_dot_incident = normal.dot(&ray.direction);
             let k = 1.0 - eta * eta * (1.0 - normal_dot_incident * normal_dot_incident);
             let new_dir;
@@ -198,16 +190,23 @@ impl Raytracer {
                 let temp_scale = eta * normal_dot_incident + k.sqrt();
                 new_dir = ray.direction.scale(eta).subtract(&normal.scale(temp_scale)); 
             }
-            let new_ray = Ray::new_with_originator(collision_point.clone(), new_dir, min_shape);
-            trans_color = self.shoot_ray(new_ray, level - 1, false);
+            let collision_point = collision_point.subtract(&normal.scale(bias));
+            let new_ray = Ray::new(collision_point, new_dir);
+            trans_color = self.shoot_ray(new_ray, level - 1);
+
+            if trans_color.r != 0.0 {
+
+            println!("{:?}", trans_color);
+            }
         }
 
         // lambertian reflectance
         let mut diffuse_color = Color::black();
 
-        if shoot_shadows {
+         {
+            let collision_point = collision_point.add(&normal.scale(bias));
             for sun in &self.suns {
-                if !self.is_in_sun_shadow(&min_shape, &collision_point, &sun) {
+                if !self.is_in_sun_shadow(&collision_point, &sun) {
                     let intensity = clamp(normal.dot(&sun.direction));
                     let mut color_from_light = min_shape.color.mul(&sun.color).scale(intensity);
                     color_from_light.a = 1.0;
@@ -216,7 +215,7 @@ impl Raytracer {
             }
     
             for bulb in &self.bulbs {
-                if !self.is_in_bulb_shadow(&min_shape, &collision_point, &bulb) {
+                if !self.is_in_bulb_shadow(&collision_point, &bulb) {
                     let to_bulb = bulb.position.subtract(&collision_point);
                     let intensity = clamp(normal.dot(&to_bulb.normalize()));
                     let mut color_from_light = min_shape.color.mul(&bulb.color).scale(intensity);
@@ -227,8 +226,6 @@ impl Raytracer {
                 }
             }
         }
-
-
 
         // temporary, only use red channel of shininess for all colors
         let shiny_mult = min_shape.shininess.r;
@@ -241,10 +238,14 @@ impl Raytracer {
 
         let mut final_color = weighted_diffuse.add(&weighted_shininess).add(&weighted_transparency);
         final_color.a = 1.0;
-
+        
         return final_color;
     }
 }
+
+fn mix(a: &f64, b: &f64, mix: &f64) -> f64 {
+    return b * mix + a * (1.0 - mix); 
+} 
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -255,7 +256,6 @@ fn main() {
     let img = parse::parse(filename);
 
     let mut r = Raytracer::new(img.cfg.width, img.cfg.height, img.spheres, img.suns, img.bulbs, img.bounces);
-    r.check_spheres();
     r.trace_from_camera();
     r.save(&img.cfg.filename);
 }

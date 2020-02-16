@@ -83,7 +83,6 @@ pub struct Sphere {
     pub center: Vector3,
     pub r: f64,
     pub color: Color,
-    pub contains_camera: bool,
     pub shininess: Color,
     pub transparency: Color,
 }
@@ -91,19 +90,9 @@ pub struct Sphere {
 impl Sphere {
     pub fn new(center: Vector3, radius: f64, color: Color, shininess: Color, transparency: Color) -> Sphere {
         Sphere { center: center, r: radius, color: color,
-            shininess: shininess, transparency: transparency, contains_camera: false }
+            shininess: shininess, transparency: transparency }
     }
     pub fn intersect(&self, ray: &Ray) -> f64 {
-        // if the ray originated from this sphere, they can't collide
-        //  without this check, it may seem like they collide due to float inaccuracies
-        let is_originator = match ray.originating_shape {
-            Some(originator) => ptr::eq(self, originator),
-            None => false
-        };
-        if is_originator {
-            return -1.0 // no collision
-        }
-
         // vector from ray origin to center of sphere
         let oc = self.center.subtract(&ray.origin);
         let oc_mag_squared = oc.dot(&oc);
@@ -132,11 +121,8 @@ impl Sphere {
 
         let t_offset = r2_d2_diff.sqrt() / ray_d_mag;
 
-        if inside {
-            return t_center + t_offset;
-        } else {
-            return t_center - t_offset;
-        }
+        let result = if inside { t_center + t_offset} else { t_center - t_offset };
+        return result;
     }
 
     pub fn normal(&self, point: &Vector3) -> Vector3 {
@@ -195,10 +181,6 @@ impl<'b> Ray<'b> {
     pub fn new(origin: Vector3, direction: Vector3) -> Ray<'b> {
         let direction = direction.normalize();
         Ray { origin, direction, originating_shape: None }
-    }
-    pub fn new_with_originator<'a>(origin: Vector3, direction: Vector3, sphere: &'a Sphere) -> Ray<'a> {
-        let direction = direction.normalize();
-        Ray { origin, direction, originating_shape: Some(sphere) }
     }
 }
 
