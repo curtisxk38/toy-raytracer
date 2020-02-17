@@ -171,16 +171,15 @@ impl Vector3 {
 }
 
 #[derive(Debug)]
-pub struct Ray<'a> {
+pub struct Ray {
     pub origin: Vector3,
     pub direction: Vector3,
-    pub originating_shape: Option<&'a Sphere>,
 }
 
-impl<'b> Ray<'b> {
-    pub fn new(origin: Vector3, direction: Vector3) -> Ray<'b> {
+impl Ray {
+    pub fn new(origin: Vector3, direction: Vector3) -> Ray {
         let direction = direction.normalize();
-        Ray { origin, direction, originating_shape: None }
+        Ray { origin, direction }
     }
 }
 
